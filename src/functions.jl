@@ -50,12 +50,13 @@ function niching_based_selection(p1, p2, H)
         return p1.rank < p2.rank ? p1 : p2
     end
 
-    return distance(p1, H[p1.ref_point]) < distance(p2, H[p2.ref_point]) ? p1 : p2
+    return distance(p1.normalized_y, H[p1.ref_point]) < distance(p2.normalized_y, H[p2.ref_point]) ? p1 : p2
     
 end
 
-distance(a,b) = sqrt(sum((a - b) .^ 2))
-
+function distance(a,b)
+    sqrt(sum((a - b) .^ 2))
+end
 
 
 function DennisDas(nbobj, p)
@@ -94,14 +95,64 @@ function normalize_pop!(pop::Vector{T}) where T
     end
 
     for indiv in pop
-        indiv.normalized_y = [((indiv.y[i] - minimums[i] / maximums[i] - minimums[i]) for i in 1:length(maximums))...]
+        indiv.normalized_y = [(((indiv.y[i] - minimums[i]) / (maximums[i] - minimums[i])) for i in 1:length(maximums))...]
     end
 
 end
 
 
-function associate_references(pop, references)
+function associate_references!(pop, references)
     for ind in pop
-
+        i_ref = 1
+        best_distance = distance(ind.normalized_y, references[1])
+        for j_ref = 2:length(references)
+            j_distance = distance(ind.normalized_y, references[j_ref])
+            if j_distance < best_distance
+                best_distance < j_distance
+                i_ref = j_ref
+            end
+        end
+        ind.ref_point = i_ref
+        ind.distance_ref = best_distance
     end
 end
+
+function niche_count(pop, references)
+    res = zeros(Int, length(references))
+    for ind in pop
+        res[ind.ref_point] += 1
+    end
+    res
+end
+
+
+function niching!(P, T, n_count)
+
+    ref = indmin(n_count)
+
+    points = find(x -> x.ref_point == ref, T)
+
+    if isempty(points)
+        n_count[ref] = length(n_count) + 1
+    else
+        n_count[ref] += 1
+        ipoint = points[1]
+        for j = 2:length(points)
+            if T[points[j]].distance_ref < T[ipoint].distance_ref
+                ipoint = points[j]
+            end
+        end
+        push!(P, T[ipoint])
+        deleteat!(T, ipoint)
+    end
+end
+
+
+
+
+
+
+
+
+
+    

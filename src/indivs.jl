@@ -1,4 +1,5 @@
 mutable struct indiv{X, N, Y}
+
     x::X
     y::NTuple{N, Y}
     normalized_y::Vector{Float64}
@@ -7,7 +8,9 @@ mutable struct indiv{X, N, Y}
     dom_count::Int
     dom_list::Vector{indiv{X,N,Y}}
     ref_point::Int
-    indiv(x::X, y::NTuple{N, Y}) where {X,N,Y} = new{X, N, Y}(x, y, SVector{N, Float64}(zeros(N)), 0, 0., 0, indiv{X,N,Y}[], 1)
+    distance_ref::Float64
+
+    indiv(x::X, y::NTuple{N, Y}) where {X,N,Y} = new{X, N, Y}(x, y, SVector{N, Float64}(zeros(N)), 0, 0., 0, indiv{X,N,Y}[], 1, 0.)
 end
 indiv(x, z::Function) = indiv(x, z(x))
 

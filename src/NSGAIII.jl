@@ -56,11 +56,13 @@ function nsga(popSize::Integer, nbGen::Integer, init::Function, z::Function ;
             i += 1
         end
         
-
+        T = vcat(P, F[i])
         if length(P) != popSize
-            normalize_pop!(vcat(P, F[i]))
+            normalize_pop!(T)
+            associate_references!(T, references)
+            n_count = niche_count(P, references)
             while length(P) < popSize
-                push!(P, pop!(F[i]))
+                niching!(P, T, n_count)
             end
         end
 
