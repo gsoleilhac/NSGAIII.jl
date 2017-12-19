@@ -9,7 +9,7 @@ const C3 = [4 2 5 3 ; 5 3 4 3 ; 4 3 5 2 ; 6 4 7 3]
 z(x, C) = sum(inds->C[inds...], enumerate(x))
 z(x::Vector{Int}) = z(x, C1), z(x, C2), z(x, C3)
 
-res = unique(nsga(500, 100, ()->randperm(4), z))
+res = unique(nsga(500, 100, ()->randperm(4), z, 5))
 @show res
 @test length(res) == 7
 
@@ -22,7 +22,7 @@ z(bits) = begin
     z1(x), z2(x)
 end
 seed = encode.([-10 + rand()*20 for _ =1:100] ,d)
-res = nsga(500, 200, ()->rand(Bool, d.nbbitstotal), z, seed = seed)
+res = nsga(500, 200, ()->rand(Bool, d.nbbitstotal), z, 5, seed = seed)
 
 @test maximum(x -> x.y[1], res) >= 3.99
 @test minimum(x -> x.y[1], res) <= 1e-4

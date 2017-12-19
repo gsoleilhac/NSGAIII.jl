@@ -1,7 +1,6 @@
 module NSGAIII
 
 using ProgressMeter
-using StaticArrays
 
 include("indivs.jl")
 include("functions.jl")
@@ -11,16 +10,24 @@ include("realcoding.jl")
 
 export nsga, RealCoding, decode, encode, DennisDas
 
+function nsga(popSize::Integer, nbGen::Integer, init::Function, z::Function, H::Int=5, fCV=(x)->0.; args...)
+    nbobj = length(z(init()))
+    nsga(popSize, nbGen, init, z, DennisDas(nbobj, H) ,fCV ; args...)
+end
 
-function nsga(popSize::Integer, nbGen::Integer, init::Function, z::Function ;
- references=DennisDas(length(z(init())), 3), fCV=(x)->0, pmut=0.05, fmut=default_mutation!, fcross = default_crossover, seed=typeof(init())[], fplot = (x)->nothing)
+function nsga(popSize::Integer, nbGen::Integer, init::Function, z::Function, references::Vector{Vector{Float64}} ,fCV ;
+  pmut=0.05, fmut=default_mutation!, fcross = default_crossover, seed=typeof(init())[], fplot = (x)->nothing)
 
-    @assert popSize % 4 == 0    
+    popSize = max(popSize, length(references)) 
+    if popSize % 4 != 0
+        popSize += 4 - (popSize % 4)
+    end
 
     X = typeof(init())
-    P = [indiv(init(), z) for _=1:popSize-length(seed)]
+    P = [indiv(init(), z, fCV) for _=1:popSize-length(seed)]
     append!(P, indiv.(convert.(X, seed),z))
     fast_non_dominated_sort!(P)
+    associate_references!(P, references)
     Q = similar(P)
 
     @showprogress 0.1 for gen = 1:nbGen
@@ -36,8 +43,8 @@ function nsga(popSize::Integer, nbGen::Integer, init::Function, z::Function ;
                 rand() < pmut && mutate!(ca, fmut)
                 rand() < pmut && mutate!(cb, fmut)
 
-                eval!(ca, z)
-                eval!(cb, z)
+                eval!(ca, z, fCV)
+                eval!(cb, z, fCV)
 
                 Q[ind_Q] = ca
                 Q[ind_Q+1] = cb
@@ -56,19 +63,96 @@ function nsga(popSize::Integer, nbGen::Integer, init::Function, z::Function ;
             i += 1
         end
         
-        T = vcat(P, F[i])
+
         if length(P) != popSize
+            T = vcat(P, F[i])
             normalize_pop!(T)
             associate_references!(T, references)
             n_count = niche_count(P, references)
             while length(P) < popSize
-                niching!(P, T, n_count)
+                niching!(P, F[i], n_count)
             end
+        else
+            associate_references!(P, references)
         end
 
         fplot(P)
     end
     P
+end
+
+
+
+
+function nsga(popSize, nbGen, H, m ; kwargs...)
+    vd = m.ext[:vOpt]
+    @assert all(isfinite, m.colLower)
+    @assert all(isfinite, m.colUpper)
+
+    @assert !(:Int in m.colCat) "Only continuous and binary variables are supported"
+    ϵ = map(x -> x==:Cont ? 8 : 0, m.colCat)
+    d = RealCoding(ϵ, m.colLower, m.colUpper)
+
+    init = () -> bitrand(d.nbbitstotal)
+
+    function evaluate(obj, x)
+        dot(obj.aff.coeffs, x[map(v-> getfield(v, :col), obj.aff.vars)]) + obj.aff.constant
+    end
+
+    function z(bits)
+        x = decode(bits, d)
+        ((evaluate(obj, x) for obj in vd.objs)...)
+    end
+
+    function CV(bits)
+        x = decode(bits, d)
+        res = 0.
+        for CSTR in m.linconstr
+
+            if CSTR.lb != -Inf
+                if CSTR.lb != 0
+                    g = dot(CSTR.terms.coeffs, x[map(v-> getfield(v, :col), CSTR.terms.vars)]) / CSTR.lb - 1
+                else
+                    g = dot(CSTR.terms.coeffs, x[map(v-> getfield(v, :col), CSTR.terms.vars)])
+                end
+                res += max(0, -g)
+            end
+
+            if CSTR.ub != Inf
+                if CSTR.ub != 0
+                    g = dot(CSTR.terms.coeffs, x[map(v-> getfield(v, :col), CSTR.terms.vars)]) / CSTR.ub - 1
+                else
+                    g = dot(CSTR.terms.coeffs, x[map(v-> getfield(v, :col), CSTR.terms.vars)])
+                end
+                res += max(0, g)
+            end
+        end
+        res
+    end
+
+
+    for i = 1:length(vd.objs)
+        if vd.objSenses[i] == :Max
+            vd.objs[i] = vd.objs[i] * -1
+        end
+    end
+
+    res = nsga(popSize, nbGen, init, z, H, CV ; kwargs...)
+
+    for i = 1:length(vd.objs)
+        if vd.objSenses[i] == :Max
+            vd.objs[i] = vd.objs[i] * -1
+        end
+    end
+
+    signs = Tuple(s == :Min ? 1 : -1 for s in vd.objSenses)
+
+    for indiv in res
+        indiv.y = indiv.y .* signs
+    end
+
+    [(decode(ind.x, d), ind.y, ind.CV) for ind in res]
+    #res
 end
 
 end # module

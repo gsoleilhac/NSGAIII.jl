@@ -51,13 +51,10 @@ function niching_based_selection(p1, p2, H)
     end
 
     return distance(p1.normalized_y, H[p1.ref_point]) < distance(p2.normalized_y, H[p2.ref_point]) ? p1 : p2
-    
+
 end
 
-function distance(a,b)
-    sqrt(sum((a - b) .^ 2))
-end
-
+distance(x,h) = norm(-x-dot(-x,h)*h)
 
 function DennisDas(nbobj, p)
     vals = [i for i = 0:1/p:1]
@@ -88,6 +85,7 @@ function normalize_pop!(pop::Vector{T}) where T
         end
     end
 
+
     for i = 1:length(maximums)
         if maximums[i] == minimums[i]
             minimums[i] -= 1
@@ -108,7 +106,7 @@ function associate_references!(pop, references)
         for j_ref = 2:length(references)
             j_distance = distance(ind.normalized_y, references[j_ref])
             if j_distance < best_distance
-                best_distance < j_distance
+                best_distance = j_distance
                 i_ref = j_ref
             end
         end
@@ -133,7 +131,7 @@ function niching!(P, T, n_count)
     points = find(x -> x.ref_point == ref, T)
 
     if isempty(points)
-        n_count[ref] = length(n_count) + 1
+        n_count[ref] = maximum(n_count) + 1
     else
         n_count[ref] += 1
         ipoint = points[1]
@@ -146,13 +144,3 @@ function niching!(P, T, n_count)
         deleteat!(T, ipoint)
     end
 end
-
-
-
-
-
-
-
-
-
-    

@@ -10,9 +10,9 @@ mutable struct indiv{X, N, Y}
     ref_point::Int
     distance_ref::Float64
 
-    indiv(x::X, y::NTuple{N, Y}) where {X,N,Y} = new{X, N, Y}(x, y, SVector{N, Float64}(zeros(N)), 0, 0., 0, indiv{X,N,Y}[], 1, 0.)
+    indiv(x::X, y::NTuple{N, Y}, cv) where {X,N,Y} = new{X, N, Y}(x, y, zeros(N), 0, cv, 0, indiv{X,N,Y}[], 0, 0.)
 end
-indiv(x, z::Function) = indiv(x, z(x))
+indiv(x, z::Function, fCV::Function) = indiv(x, z(x), fCV(x))
 
 
 function dominates(a::indiv, b::indiv)
@@ -41,7 +41,8 @@ function show(io::IO, ind::indiv{X, Y}) where {X<:AbstractArray{Bool}, Y}
     end
 end 
 
-function eval!(indiv::indiv, z::Function)
+function eval!(indiv::indiv, z::Function, fCV::Function)
     indiv.y = z(indiv.x)
+    indiv.CV = fCV(indiv.x)
     indiv
 end

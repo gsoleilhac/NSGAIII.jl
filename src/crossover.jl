@@ -1,6 +1,6 @@
 function crossover(ind_a::indiv{X,Y}, ind_b::indiv{X,Y}, fcross::Function)::Tuple{indiv{X,Y}, indiv{X,Y}} where {X,Y}
     c1, c2 = fcross(ind_a.x, ind_b.x)
-    return indiv(c1, ind_a.y), indiv(c2, ind_a.y) #c1.y and c2.y will be set later
+    return indiv(c1, ind_a.y, 0.), indiv(c2, ind_a.y, 0.) #c.y and c.CV will be set later
 end
 
 function two_point_crossover(bits_a, bits_b)
