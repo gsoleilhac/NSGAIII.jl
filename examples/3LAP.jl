@@ -9,7 +9,7 @@
 # Discrete Optimization, Vol. 7, Iss. 3, pp. 149–165, 2010.
 # http://www.sciencedirect.com/science/article/pii/S1572528610000125
 
-using NSGAII
+using NSGAIII
 
 const C1 = [2 5 4 7 ; 3 3 5 7 ; 3 8 4 2 ; 6 5 2 5]
 const C2 = [3 3 6 2 ; 5 3 7 3 ; 5 2 7 4 ; 4 6 3 5]

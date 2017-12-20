@@ -93,7 +93,7 @@ function normalize_pop!(pop::Vector{T}) where T
     end
 
     for indiv in pop
-        indiv.normalized_y = [(((indiv.y[i] - minimums[i]) / (maximums[i] - minimums[i])) for i in 1:length(maximums))...]
+        indiv.normalized_y = [((maximums[i] - indiv.y[i]) / (maximums[i] - minimums[i])) for i in 1:length(maximums)]
     end
 
 end

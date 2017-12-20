@@ -6,7 +6,7 @@ using PyPlot
 function plot_pop(P)
     clf()
     pop = filter(x -> x.CV ≈ 0, P)
-    non_dom = NSGAII.fast_non_dominated_sort!(P)[1]
+    non_dom = NSGAIII.fast_non_dominated_sort!(P)[1]
     pop = setdiff(pop, non_dom)
     p = plot3D(map(x -> x.y[1], pop), map(x -> x.y[2], pop), map(x -> x.y[3], pop), "bo", markersize=1)
     p = plot3D(map(x -> x.y[1], non_dom), map(x -> x.y[2], non_dom), map(x -> x.y[3], non_dom), "go", markersize=1)
@@ -21,12 +21,12 @@ end
 
 m = vModel(solver = GLPKSolverMIP())
 
-@variable(m, 0 <=x[1:5] <= 20)
+@variable(m, 0 <=x[1:5] <= 10)
 @variable(m, δ[1:3], Bin)
 
-@addobjective(m, Min, -(dot([17,-12,-12,-19,-6], x) + dot([-73, -99, -81], δ)))
-@addobjective(m, Min, -(dot([2,-6,0,-12,13], x) + dot([-61,-79,-53], δ)))
-@addobjective(m, Min, -(dot([-20,7,-16,0,-1], x) + dot([-72,-54,-79], δ)))
+@addobjective(m, Max, dot([17,-12,-12,-19,-6], x) + dot([-73, -99, -81], δ))
+@addobjective(m, Max, dot([2,-6,0,-12,13], x) + dot([-61,-79,-53], δ))
+@addobjective(m, Max, dot([-20,7,-16,0,-1], x) + dot([-72,-54,-79], δ))
 
 @constraint(m, sum(δ) <= 1)
 @constraint(m, -x[2] + 6x[5] + 25δ[1] <= 52)
@@ -36,11 +36,13 @@ m = vModel(solver = GLPKSolverMIP())
 @constraint(m, 13x[2] + 7x[4] <= 86)
 
 
+print(m)
 
-res = nsga(1000, 200, 10, m, pmut=0.3)
-println(sort(res, by = x -> x[2][1])[1])
-println(sort(res, by = x -> x[2][2])[1])
-println(sort(res, by = x -> x[2][3])[1])
 
+res = nsga(0, 50, 30, m, fplot = plot_pop, pmut=0.3);
 solve(m, method=:lex)
-@show getY_N(m)
+
+sort(res, by = x -> x[2][1])[1]
+sort(res, by = x -> x[2][2])[1]
+sort(res, by = x -> x[2][3])[1]
+getY_N(m)

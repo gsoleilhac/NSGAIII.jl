@@ -1,6 +1,7 @@
 module NSGAIII
 
 using ProgressMeter
+using Requires
 
 include("indivs.jl")
 include("functions.jl")
@@ -25,7 +26,7 @@ function nsga(popSize::Integer, nbGen::Integer, init::Function, z::Function, ref
 
     X = typeof(init())
     P = [indiv(init(), z, fCV) for _=1:popSize-length(seed)]
-    append!(P, indiv.(convert.(X, seed),z))
+    append!(P, indiv.(convert.(X, seed),z, fCV))
     fast_non_dominated_sort!(P)
     associate_references!(P, references)
     Q = similar(P)
@@ -83,76 +84,87 @@ end
 
 
 
+@require vOptGeneric begin
+    function nsga(popSize, nbGen, H, m ; kwargs...)
 
-function nsga(popSize, nbGen, H, m ; kwargs...)
-    vd = m.ext[:vOpt]
-    @assert all(isfinite, m.colLower)
-    @assert all(isfinite, m.colUpper)
+        vd = @eval Main getvOptData(m)
+        @assert all(isfinite, m.colLower)
+        @assert all(isfinite, m.colUpper)
 
-    @assert !(:Int in m.colCat) "Only continuous and binary variables are supported"
-    ϵ = map(x -> x==:Cont ? 8 : 0, m.colCat)
-    d = RealCoding(ϵ, m.colLower, m.colUpper)
+        @assert !(:Int in m.colCat) "Only continuous and binary variables are supported"
+        ϵ = map(x -> x==:Cont ? 4 : 0, m.colCat)
+        d = RealCoding(ϵ, m.colLower, m.colUpper)
 
-    init = () -> bitrand(d.nbbitstotal)
+        init = () -> bitrand(d.nbbitstotal)
 
-    function evaluate(obj, x)
-        dot(obj.aff.coeffs, x[map(v-> getfield(v, :col), obj.aff.vars)]) + obj.aff.constant
-    end
+        function evaluate(obj, x)
+            dot(obj.aff.coeffs, x[map(v-> getfield(v, :col), obj.aff.vars)]) + obj.aff.constant
+        end
 
-    function z(bits)
-        x = decode(bits, d)
-        ((evaluate(obj, x) for obj in vd.objs)...)
-    end
+        function z(bits)
+            x = decode(bits, d)
+            ((evaluate(obj, x) for obj in vd.objs)...)
+        end
 
-    function CV(bits)
-        x = decode(bits, d)
-        res = 0.
-        for CSTR in m.linconstr
+        function CV(bits)
+            x = decode(bits, d)
+            res = 0.
+            for CSTR in m.linconstr
 
-            if CSTR.lb != -Inf
-                if CSTR.lb != 0
-                    g = dot(CSTR.terms.coeffs, x[map(v-> getfield(v, :col), CSTR.terms.vars)]) / CSTR.lb - 1
-                else
-                    g = dot(CSTR.terms.coeffs, x[map(v-> getfield(v, :col), CSTR.terms.vars)])
+                if CSTR.lb != -Inf && CSTR.lb != typemin(Float64) 
+                    if CSTR.lb == 0
+                        g = dot(CSTR.terms.coeffs, x[map(v-> getfield(v, :col), CSTR.terms.vars)])
+                        res += max(0, -g)
+                    elseif CSTR.lb > 0 
+                        g = dot(CSTR.terms.coeffs, x[map(v-> getfield(v, :col), CSTR.terms.vars)]) / CSTR.lb - 1
+                        res += max(0, -g)
+                    else
+                        g = dot(CSTR.terms.coeffs, x[map(v-> getfield(v, :col), CSTR.terms.vars)]) / CSTR.lb - 1
+                        res += max(0, g)
+                    end
+
                 end
-                res += max(0, -g)
-            end
 
-            if CSTR.ub != Inf
-                if CSTR.ub != 0
-                    g = dot(CSTR.terms.coeffs, x[map(v-> getfield(v, :col), CSTR.terms.vars)]) / CSTR.ub - 1
-                else
-                    g = dot(CSTR.terms.coeffs, x[map(v-> getfield(v, :col), CSTR.terms.vars)])
+                if CSTR.ub != Inf && CSTR.lb != typemax(Float64)
+                     if CSTR.ub == 0
+                        g = dot(CSTR.terms.coeffs, x[map(v-> getfield(v, :col), CSTR.terms.vars)])
+                        res += max(0, g)
+                    elseif CSTR.ub > 0 
+                        g = dot(CSTR.terms.coeffs, x[map(v-> getfield(v, :col), CSTR.terms.vars)]) / CSTR.ub - 1
+                        res += max(0, g)
+                    else
+                        g = dot(CSTR.terms.coeffs, x[map(v-> getfield(v, :col), CSTR.terms.vars)]) / CSTR.ub - 1
+                        res += max(0, -g)
+                    end
                 end
-                res += max(0, g)
+            end
+            res
+        end
+
+
+        for i = 1:length(vd.objs)
+            if vd.objSenses[i] == :Max
+                vd.objs[i] = vd.objs[i] * -1
             end
         end
-        res
-    end
 
+        res = nsga(popSize, nbGen, init, z, H, CV ; kwargs...)
 
-    for i = 1:length(vd.objs)
-        if vd.objSenses[i] == :Max
-            vd.objs[i] = vd.objs[i] * -1
+        for i = 1:length(vd.objs)
+            if vd.objSenses[i] == :Max
+                vd.objs[i] = vd.objs[i] * -1
+            end
         end
+
+        # signs = Tuple(s == :Min ? 1 : -1 for s in vd.objSenses)
+
+        # for indiv in res
+        #     indiv.y = indiv.y .* signs
+        # end
+
+        [(decode(ind.x, d), ind.y, ind.CV) for ind in res]
+
     end
-
-    res = nsga(popSize, nbGen, init, z, H, CV ; kwargs...)
-
-    for i = 1:length(vd.objs)
-        if vd.objSenses[i] == :Max
-            vd.objs[i] = vd.objs[i] * -1
-        end
-    end
-
-    signs = Tuple(s == :Min ? 1 : -1 for s in vd.objSenses)
-
-    for indiv in res
-        indiv.y = indiv.y .* signs
-    end
-
-    [(decode(ind.x, d), ind.y, ind.CV) for ind in res]
-    #res
 end
 
 end # module
