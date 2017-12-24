@@ -26,14 +26,14 @@ init_function = () -> randperm(N) #e.g : a permutation coding
 #define how to evaluate a genotype : 
 z(x) = z1(x), z2(x) ... # Must return a Tuple
 
-nsga(popsize, nbGenerations, init_function, z)
+nsga(popsize, nbGenerations, init_function, z, H)
 
 #A constraint violation function can be passed with the keyword fCV
 #It should return 0. if the solution is feasible and a value > 0 otherwise.
 
 #Mutation probability can be changed with the keyword pMut (default is 5%)
 
-nsga(popsize, nbGen, init_fun, z, fCV = CV, pMut = 0.1)
+nsga(popsize, nbGen, init_fun, z, H, fCV = CV, pMut = 0.1)
 
 ```
 
@@ -88,6 +88,6 @@ nsga(100, 50, ()->bitrand(d.nbbitstotal), z, seed=seed)
 
 ## vOptGeneric
 
-This package supports models declared with JuMP / vOptGeneric, with the restriction thatall variables must be bounded, and that they're either continuous or binary (integer might get added later)
+This package supports models declared with JuMP / vOptGeneric, with the restriction that all variables must be bounded, and that they're either continuous or binary (integer might get added later)
 
 See examples/Mavrota_MILP.jl
