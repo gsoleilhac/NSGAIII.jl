@@ -1,7 +1,7 @@
 using NSGAIII
 using vOptGeneric, GLPKMathProgInterface
 
-using PyPlot
+# using PyPlot
 
 function plot_pop(P)
     clf()
@@ -38,11 +38,27 @@ m = vModel(solver = GLPKSolverMIP())
 
 print(m)
 
+res = nsga(0, 100, 10, m,  pmut=0.3);
 
-res = nsga(0, 50, 30, m, fplot = plot_pop, pmut=0.3);
 solve(m, method=:lex)
+println("\nRésolution lexico-graphique : ")
+display(getY_N(m));
 
-sort(res, by = x -> x[2][1])[1]
-sort(res, by = x -> x[2][2])[1]
-sort(res, by = x -> x[2][3])[1]
-getY_N(m)
+println()
+println("Meilleur individu sur le premier objectif")
+x1 = sort(res, by = x -> x[2][1])[end];
+println("x = $(x1[1][1:5]) , δ = $(x1[1][6:8])")
+println("z = $(x1[2])")
+println("CV : $(x1[3])")
+
+println("Meilleur individu sur le deuxième objectif")
+x2 = sort(res, by = x -> x[2][2])[end];
+println("x = $(x2[1][1:5]) , δ = $(x2[1][6:8])")
+println("z = $(x2[2])")
+println("CV : $(x2[3])")
+
+println("Meilleur individu sur le troisième objectif")
+x3 = sort(res, by = x -> x[2][3])[end];
+println("x = $(x3[1][1:5]) , δ = $(x3[1][6:8])")
+println("z = $(x3[2])")
+println("CV : $(x3[3])")

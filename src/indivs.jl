@@ -29,7 +29,6 @@ end
 
 import Base.==; ==(a::indiv, b::indiv) = a.x == b.x
 import Base.hash; hash(a::indiv) = hash(a.x)
-import Base.isless; isless(a::indiv, b::indiv) = a.rank < b.rank || a.rank == b.rank && a.crowding >= b.crowding #Comparison operator for tournament selection
 import Base.show; show(io::IO, ind::indiv) = print(io, "ind($(ind.x) : $(ind.y) | rank : $(ind.rank))")
 
 function show(io::IO, ind::indiv{X, Y}) where {X<:AbstractArray{Bool}, Y}

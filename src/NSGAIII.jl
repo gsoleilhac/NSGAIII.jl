@@ -11,13 +11,13 @@ include("realcoding.jl")
 
 export nsga, RealCoding, decode, encode, DennisDas
 
-function nsga(popSize::Integer, nbGen::Integer, init::Function, z::Function, H::Int=5, fCV=(x)->0.; args...)
+function nsga(popSize::Integer, nbGen::Integer, init::Function, z::Function, H::Int=15; args...)
     nbobj = length(z(init()))
-    nsga(popSize, nbGen, init, z, DennisDas(nbobj, H) ,fCV ; args...)
+    nsga(popSize, nbGen, init, z, DennisDas(nbobj, H) ; args...)
 end
 
-function nsga(popSize::Integer, nbGen::Integer, init::Function, z::Function, references::Vector{Vector{Float64}} ,fCV ;
-  pmut=0.05, fmut=default_mutation!, fcross = default_crossover, seed=typeof(init())[], fplot = (x)->nothing)
+function nsga(popSize::Integer, nbGen::Integer, init::Function, z::Function, references::Vector{Vector{Float64}} ;
+    fCV=(x)->0. , pmut=0.05, fmut=default_mutation!, fcross = default_crossover, seed=typeof(init())[], fplot = (x)->nothing)
 
     popSize = max(popSize, length(references)) 
     if popSize % 4 != 0
@@ -35,7 +35,7 @@ function nsga(popSize::Integer, nbGen::Integer, init::Function, z::Function, ref
 
         ind_Q = 1
         for pass = 1:2
-            pass == 2 && shuffle!(P)
+            shuffle!(P)
             for i = 1:4:popSize
                 pa = niching_based_selection(P[i], P[i+1], references)
                 pb = niching_based_selection(P[i+2], P[i+3], references)
@@ -88,11 +88,11 @@ end
     function nsga(popSize, nbGen, H, m ; kwargs...)
 
         vd = @eval Main getvOptData(m)
-        @assert all(isfinite, m.colLower)
-        @assert all(isfinite, m.colUpper)
+        @assert all(isfinite, m.colLower) "All variables must be bounded"
+        @assert all(isfinite, m.colUpper) "All variables must be bounded"
 
         @assert !(:Int in m.colCat) "Only continuous and binary variables are supported"
-        ϵ = map(x -> x==:Cont ? 4 : 0, m.colCat)
+        ϵ = map(x -> x==:Cont ? 5 : 0, m.colCat)
         d = RealCoding(ϵ, m.colLower, m.colUpper)
 
         init = () -> bitrand(d.nbbitstotal)
@@ -141,6 +141,13 @@ end
             res
         end
 
+        for i = 1:length(vd.objs)
+            if vd.objSenses[i] == :Max
+                vd.objs[i] = vd.objs[i] * -1
+            end
+        end
+
+        res = nsga(popSize, nbGen, init, z, H ; fCV = CV, kwargs...)
 
         for i = 1:length(vd.objs)
             if vd.objSenses[i] == :Max
@@ -148,19 +155,13 @@ end
             end
         end
 
-        res = nsga(popSize, nbGen, init, z, H, CV ; kwargs...)
+        signs = Tuple(s == :Min ? 1 : -1 for s in vd.objSenses)
 
-        for i = 1:length(vd.objs)
-            if vd.objSenses[i] == :Max
-                vd.objs[i] = vd.objs[i] * -1
-            end
+        @show signs
+
+        for indiv in res
+            indiv.y = indiv.y .* signs
         end
-
-        # signs = Tuple(s == :Min ? 1 : -1 for s in vd.objSenses)
-
-        # for indiv in res
-        #     indiv.y = indiv.y .* signs
-        # end
 
         [(decode(ind.x, d), ind.y, ind.CV) for ind in res]
 

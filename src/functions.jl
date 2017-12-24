@@ -50,8 +50,7 @@ function niching_based_selection(p1, p2, H)
         return p1.rank < p2.rank ? p1 : p2
     end
 
-    return distance(p1.normalized_y, H[p1.ref_point]) < distance(p2.normalized_y, H[p2.ref_point]) ? p1 : p2
-
+    return p1.distance_ref < p2.distance_ref ? p1 : p2
 end
 
 distance(x,h) = norm(-x-dot(-x,h)*h)
@@ -75,8 +74,8 @@ end
 
 
 function normalize_pop!(pop::Vector{T}) where T
-    maximums = [i for i in pop[1].y]
-    minimums = [i for i in pop[1].y]
+    maximums = [pop[1].y...]
+    minimums = [pop[1].y...]
 
     for indiv in pop
         for obj = 1:length(maximums)
@@ -84,7 +83,6 @@ function normalize_pop!(pop::Vector{T}) where T
             minimums[obj] = min(minimums[obj], indiv.y[obj])
         end
     end
-
 
     for i = 1:length(maximums)
         if maximums[i] == minimums[i]
@@ -101,16 +99,16 @@ end
 
 function associate_references!(pop, references)
     for ind in pop
-        i_ref = 1
+        ref = 1
         best_distance = distance(ind.normalized_y, references[1])
         for j_ref = 2:length(references)
             j_distance = distance(ind.normalized_y, references[j_ref])
             if j_distance < best_distance
                 best_distance = j_distance
-                i_ref = j_ref
+                ref = j_ref
             end
         end
-        ind.ref_point = i_ref
+        ind.ref_point = ref
         ind.distance_ref = best_distance
     end
 end
